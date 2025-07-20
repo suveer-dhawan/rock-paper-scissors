@@ -89,3 +89,92 @@ The project leverages a robust set of Python libraries and a specialized develop
 
 * Optimizer: The ```AdamW``` optimizer was chosen for its adaptive learning rates and decoupled weight decay, which generally leads to better generalization performance in deep learning.
 
+## ⚙️ Data Preprocessing & Augmentation
+To enhance model robustness and prevent overfitting, a strategic data preprocessing pipeline was implemented. This ensured that the models were trained on diverse and appropriately transformed image data.
+
+1. Custom Train/Validation Split
+The original ```train folder``` (containing 2,520 images) was meticulously split to create distinct datasets for training and validation:
+
+   * Actual Training Set: 2,016 images (80% of the original training data).
+
+   * Validation Set: 504 images (20% of the original training data).
+
+   This custom split was crucial because the original Kaggle dataset, while providing ```train``` and ```test splits```, had only a very small validation subset. By creating a larger, dedicated validation set, we could more reliably monitor model performance during training and detect overfitting early. The split was carefully executed to maintain the original class proportions (equal numbers of 'rock', 'paper', 'scissors' images) across both the training and validation sets, preventing any unintended class imbalance in the training process.
+
+2. Image Transformations
+Different sets of transformations were applied to the training, validation, and test datasets to suit their respective purposes:
+
+   * Training Data Transformations: To maximize data diversity and improve generalization, a comprehensive suite of data augmentation techniques was applied:
+   
+      * ```RandomResizedCrop(224)```: Randomly crops and resizes the image to 224x224 pixels. This simulates variations in scale and position of the hand gestures.
+   
+      * ```ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1)```: Randomly changes the brightness, contrast, saturation, and hue of the images. This helps the model become invariant to lighting conditions.
+   
+      * ```RandomHorizontalFlip()```: Randomly flips the image horizontally. This is a common and effective augmentation for many image tasks as hand gestures can appear mirrored.
+   
+      * ```RandomRotation(15)```: Randomly rotates the image by up to 15 degrees. This accounts for slight variations in hand orientation.
+   
+      * ```RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1))```: Applies random affine transformations, including translations (shifts) and scaling. This further enhances robustness to position and size variations.
+   
+      * ```GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))```: Applies a Gaussian blur, simulating slight out-of-focus conditions or different image qualities.
+   
+      * ```ToTensor()```: Converts the image from a PIL Image or NumPy array to a PyTorch ```Tensor```.
+   
+      * ```Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])```: Normalizes the pixel values using the ImageNet means and standard deviations. This is a common practice when using pre-trained models or similar architectures, as it helps standardize the input distribution, which can speed up convergence and improve performance.
+    
+   * Validation & Test Data Transformations: For evaluation datasets, consistency is key, so only deterministic transformations were applied to accurately assess performance on unseen data:
+   
+      * ```Resize(224)```: Resizes the image to 224x224 pixels.
+   
+      * ```CenterCrop(224)```: Crops the center of the image to 224x224 pixels, ensuring consistent input dimensions.
+   
+      * ```ToTensor()```: Converts the image to a PyTorch ```Tensor```.
+   
+      * ```Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])```: Normalizes pixel values using ImageNet statistics, matching the training data normalization.
+ 
+3. Custom Dataset Class (```RockPaperScissorsDataset```)
+A custom PyTorch ```Dataset``` class, ```RockPaperScissorsDataset```, was implemented to efficiently handle the loading of images and their corresponding labels. This class:
+
+   * Inherits from ```torch.utils.data.Dataset```.
+
+   * Reads image file paths from specified directories.
+
+   * Maps string labels to integer IDs: ```paper: 0```, ```rock: 1```, ```scissors: 2```. This numerical representation is required for training with ```nn.CrossEntropyLoss```.
+
+   * Applies the defined image transformations to each image upon retrieval.
+
+4. DataLoaders
+```torch.utils.data.DataLoader``` instances were configured for all three datasets (training, validation, and test) to manage data loading in mini-batches:
+
+   * ```batch_size=32```: A standard batch size that offers a good balance between training stability and memory usage.
+
+   * ```num_workers=2```: Specifies the number of subprocesses to use for data loading. This allows for parallel data loading, preventing bottlenecks during GPU training.
+
+   * ```pin_memory=True```: This optimizes data transfer to the GPU by loading data into pinned (page-locked) memory, which is directly accessible by the GPU.
+
+   * Shuffling: The training data ```DataLoader``` was set to ```shuffle=True``` to randomize the order of samples in each epoch, which is crucial for preventing the model from learning the order of the data and improving generalization. Validation and test DataLoaders had ```shuffle=False``` to ensure consistent evaluation.
+  
+
+## 🏛️ Model Architectures
+We developed and evaluated two distinct Convolutional Neural Network (CNN) models. The second, a "Deeper CNN," was further refined with advanced training techniques to achieve optimal performance.
+
+1. Simple CNN (SimpleCNN)
+   Our initial venture was a foundational CNN designed for straightforward image classification. It's built on a series of basic convolutional blocks:
+   
+   * Convolutional Blocks: The model consists of four sequential blocks. Each block typically includes:
+   
+      * ```nn.Conv2d```: A 2D convolutional layer with a ```3x3``` kernel and ```padding=1``` to preserve spatial dimensions initially.
+      
+      * ```nn.ReLU```: A Rectified Linear Unit activation function, introducing non-linearity.
+      
+      * ```nn.MaxPool2d```: A max-pooling layer with a ```2x2``` kernel and ```stride=2``` to progressively reduce the spatial dimensions of the feature maps.
+   
+   * Channel Progression: The number of output channels incrementally increases through the layers:
+   
+      * Starts with ```in_channels=3``` (for RGB images).
+      
+      * Progresses through ```16``` -> ```32``` -> ```64``` -> ```128``` ```out_channels```. This allows the network to learn increasingly complex features.
+   
+   * Feature Map Reduction: Each MaxPool2d operation effectively halves the spatial dimensions of the feature maps. For example, an input of ```224x224``` pixels would be reduced to ```112x112```, then ```56x56```, ```28x28```, and finally 14x14.
+   
+   * Fully Connected Layers: After the convolutional layers, the flattened features are fed into two dense (fully connected) layers for final classification. The last layer has 3 output neurons, corresponding to the three classes: Rock, Paper, and Scissors.
