@@ -178,3 +178,20 @@ We developed and evaluated two distinct Convolutional Neural Network (CNN) model
    * Feature Map Reduction: Each MaxPool2d operation effectively halves the spatial dimensions of the feature maps. For example, an input of ```224x224``` pixels would be reduced to ```112x112```, then ```56x56```, ```28x28```, and finally 14x14.
    
    * Fully Connected Layers: After the convolutional layers, the flattened features are fed into two dense (fully connected) layers for final classification. The last layer has 3 output neurons, corresponding to the three classes: Rock, Paper, and Scissors.
+  
+2. Deeper CNN (```DeeperCNN```)
+   Building on the ```SimpleCNN```, the ```DeeperCNN``` is an enhanced and more robust architecture. It uses ```nn.Sequential``` for better modularity and integrates advanced regularization techniques to improve stability and prevent overfitting.
+   
+   * Similar Core Structure: It retains the four convolutional blocks, much like the ```SimpleCNN```.
+   
+   * Key Enhancements per Block: Each convolutional block in the ```DeeperCNN``` is significantly improved with:
+   
+      * ``nn.BatchNorm2d`` (Batch Normalization): Placed immediately after each ```Conv2d``` layer. Batch normalization standardizes the inputs to layers, leading to improved training stability, faster convergence, and often better performance by reducing internal covariate shift.
+      
+      * ```nn.Dropout2d(p=0.25)```: Applied after each ```MaxPool2d``` operation. This form of dropout randomly sets a fraction (```p=0.25```) of input channels to zero during training. It's a powerful regularization technique that prevents the network from relying too heavily on specific features, thus mitigating overfitting.
+      
+   * Enhanced Fully Connected Layers: The dense layers at the end of the network are also more sophisticated:
+   
+      * They now incorporate ```nn.BatchNorm1d``` (Batch Normalization for 1D inputs) and ```nn.ReLU``` activation. This helps manage the potentially larger and more complex feature vectors emerging from the deeper convolutional layers, ensuring stable and effective classification.
+
+   These architectural choices were designed to progressively handle more intricate patterns within the image data, leading to the superior performance observed with the DeeperCNN model.
